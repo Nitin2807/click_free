@@ -9,19 +9,92 @@ function getSelectionText() {
 }
 
 function dispatchInputEvents(element) {
-  element.dispatchEvent(new Event("input", { bubbles: true }));
-  element.dispatchEvent(new Event("change", { bubbles: true }));
+  element.dispatchEvent(new Event("input", { bubbles: true, composed: true }));
+  element.dispatchEvent(new Event("change", { bubbles: true, composed: true }));
+}
+
+function getNativeValueSetter(element) {
+  const proto = element instanceof HTMLTextAreaElement
+    ? HTMLTextAreaElement.prototype
+    : HTMLInputElement.prototype;
+  return Object.getOwnPropertyDescriptor(proto, "value")?.set;
+}
+
+function replaceWithNativeSetter(element, text) {
+  const setter = getNativeValueSetter(element);
+  if (!setter) {
+    return false;
+  }
+
+  setter.call(element, text);
+  dispatchInputEvents(element);
+  return true;
+}
+
+function replaceAtCursor(element, text) {
+  if (typeof element.setRangeText !== "function") {
+    return false;
+  }
+
+  const start = Number.isInteger(element.selectionStart) ? element.selectionStart : 0;
+  const end = Number.isInteger(element.selectionEnd) ? element.selectionEnd : start;
+
+  element.setRangeText(text, start, end, "end");
+  dispatchInputEvents(element);
+  return true;
+}
+
+function dispatchBeforeInput(element, text) {
+  try {
+    return element.dispatchEvent(new InputEvent("beforeinput", {
+      bubbles: true,
+      cancelable: true,
+      composed: true,
+      data: text,
+      inputType: "insertFromPaste"
+    }));
+  } catch {
+    return true;
+  }
+}
+
+function insertIntoInputLike(element, text) {
+  if (!dispatchBeforeInput(element, text)) {
+    return true;
+  }
+
+  if (replaceAtCursor(element, text)) {
+    return true;
+  }
+
+  return replaceWithNativeSetter(element, text);
 }
 
 function simulateTyping(element, text) {
+  if (!element) return;
   element.focus();
 
-  // Special handling for Monaco Editor (common in coding platforms like LeetCode, maang.in)
+  // Monaco: paste into current selection/cursor in focused editor.
   if (window.monaco && window.monaco.editor) {
     const editors = window.monaco.editor.getEditors();
     if (editors.length > 0) {
-      const editor = editors[0]; // Assume the first editor
-      editor.setValue(text);
+      const focusedEditor = editors.find((ed) => typeof ed.hasTextFocus === "function" && ed.hasTextFocus());
+      const editor = focusedEditor || editors[0];
+      const selection = typeof editor.getSelection === "function" ? editor.getSelection() : null;
+
+      if (selection && typeof editor.executeEdits === "function") {
+        editor.executeEdits("gemini-quickpaste", [{
+          range: selection,
+          text,
+          forceMoveMarkers: true
+        }]);
+        if (typeof editor.pushUndoStop === "function") {
+          editor.pushUndoStop();
+        }
+      } else {
+        editor.setValue(text);
+      }
+
       editor.focus();
       console.log("Injected into Monaco editor");
       return;
@@ -39,22 +112,29 @@ function simulateTyping(element, text) {
     }
   }
 
-  // First, try direct value assignment + events (fastest)
-  if ("value" in element) {
-    element.value = text;
-    dispatchInputEvents(element);
+  // Input/textarea: prefer native setter and range APIs to satisfy strict listeners.
+  if (element instanceof HTMLInputElement || element instanceof HTMLTextAreaElement) {
+    insertIntoInputLike(element, text);
     return;
   }
 
-  // If it's a contenteditable, use innerText
+  // If it's a contenteditable, use edit commands first.
   if (element.isContentEditable) {
-    element.innerText = text;
+    if (!dispatchBeforeInput(element, text)) {
+      return;
+    }
+
+    element.focus();
+    document.execCommand("selectAll", false);
+    const inserted = document.execCommand("insertText", false, text);
+    if (!inserted) {
+      element.textContent = text;
+    }
     dispatchInputEvents(element);
     return;
   }
 
-  // Fallback: simulate keystrokes for each character
-  // This can bypass some restrictions if the editor listens to key events
+  // Fallback: simulate keystrokes for each character.
   for (let i = 0; i < text.length; i++) {
     const char = text[i];
     const keydown = new KeyboardEvent('keydown', { key: char, bubbles: true, cancelable: true });
@@ -67,7 +147,6 @@ function simulateTyping(element, text) {
       element.dispatchEvent(keypress);
       if (!keypress.defaultPrevented) {
         element.dispatchEvent(input);
-        // Update value manually if not handled
         if ("value" in element) {
           element.value += char;
         } else if (element.isContentEditable) {
@@ -87,7 +166,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     const text = getSelectionText();
     console.log("Captured selection:", text);
     sendResponse({ text });
-    return; // keepAlive not needed because sendResponse is called synchronously
+    return;
   }
 
   if (message.type === "paste-response") {

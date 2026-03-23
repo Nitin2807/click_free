@@ -1,36 +1,47 @@
 {
-  "manifest_version": 3,
-  "name": "Gemini QuickPaste",
-  "description": "Send selected text to Gemini and paste the response via keyboard shortcuts.",
-  "version": "0.1.0",
-  "permissions": ["storage", "scripting", "activeTab"],
-  "host_permissions": ["<all_urls>"],
-  "background": {
-    "service_worker": "background.js"
-  },
-  "options_page": "options.html",
-  "action": {
-    "default_title": "Gemini QuickPaste"
-  },
-  "content_scripts": [
-    {
-      "matches": ["<all_urls>"],
-      "js": ["content.js"],
-      "run_at": "document_idle"
-    }
-  ],
-  "commands": {
-    "send-to-gemini": {
-      "suggested_key": {
-        "default": "Ctrl+Shift+U"
-      },
-      "description": "Send the selected text to Gemini."
-    },
-    "paste-gemini-response": {
-      "suggested_key": {
-        "default": "Ctrl+Shift+Y"
-      },
-      "description": "Paste the last Gemini response into the focused field."
-    }
-  }
+    "manifest_version":  3,
+    "name":  "Gemini QuickPaste",
+    "description":  "Send selected text to Gemini and paste the response via keyboard shortcuts.",
+    "version":  "0.1.0",
+    "permissions":  [
+                        "storage",
+                        "scripting",
+                        "activeTab"
+                    ],
+    "host_permissions":  [
+                             "\u003call_urls\u003e"
+                         ],
+    "background":  {
+                       "service_worker":  "background.js"
+                   },
+    "options_page":  "options.html",
+    "action":  {
+                   "default_title":  "Gemini QuickPaste"
+               },
+    "content_scripts":  [
+                            {
+                                "matches":  [
+                                                "\u003call_urls\u003e"
+                                            ],
+                                "js":  [
+                                           "content.js"
+                                       ],
+                                "run_at":  "document_idle",
+                                "all_frames":  true
+                            }
+                        ],
+    "commands":  {
+                     "send-to-gemini":  {
+                                            "suggested_key":  {
+                                                                  "default":  "Alt+Shift+U"
+                                                              },
+                                            "description":  "Send the selected text to Gemini."
+                                        },
+                     "paste-gemini-response":  {
+                                                   "suggested_key":  {
+                                                                         "default":  "Alt+Shift+Y"
+                                                                     },
+                                                   "description":  "Paste the last Gemini response into the focused field."
+                                               }
+                 }
 }

@@ -16,13 +16,6 @@
       margin-top: 16px;
     }
 
-    input {
-      width: 100%;
-      padding: 8px;
-      font-size: 14px;
-      box-sizing: border-box;
-    }
-
     button {
       margin-top: 18px;
       padding: 10px 14px;
@@ -50,17 +43,8 @@
 <body>
   <h1>Gemini QuickPaste</h1>
 
-  <label>
-    Gemini API Key
-    <input id="apiKey" type="password" placeholder="Paste your API key here" autocomplete="off" />
-  </label>
-  <div class="hint">This is stored locally in chrome.storage.local. No data is sent until you trigger the shortcut.</div>
-
-  <label>
-    Model (optional)
-    <input id="model" type="text" placeholder="e.g. gemini-1.5-flash" />
-  </label>
-  <div class="hint">Valid models: gemini-1.5-flash, gemini-1.5-pro. Leave blank for default.</div>
+  <div class="hint">API key is embedded in the extension source (background.js).</div>
+  <div class="hint">Model is hardcoded to: <strong>gemma-3-27b-it</strong>.</div>
 
   <label>
     Prompt Prefix (optional)
